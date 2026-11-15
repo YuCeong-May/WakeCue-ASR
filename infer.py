@@ -25,8 +25,8 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from tcg_tsasr import TextCueGuidedTSASR
-from tcg_tsasr.inference import SAMPLE_RATE, load_audio
+from inference import TextCueGuidedTSASR
+from inference.inference import SAMPLE_RATE, load_audio
 
 RESULT_KEYS = ("text", "rejected", "raw")
 

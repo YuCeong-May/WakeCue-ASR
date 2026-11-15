@@ -1,6 +1,6 @@
 """High-level inference: audio + text cue -> transcript of the cue speaker.
 
-    from tcg_tsasr import TextCueGuidedTSASR
+    from inference import TextCueGuidedTSASR
 
     asr = TextCueGuidedTSASR.from_pretrained("YuCeong-May/WakeCue-ASR")
     asr.transcribe("speech.wav", "附近居民")

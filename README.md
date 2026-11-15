@@ -83,7 +83,7 @@ lists all options.
 From the repository root:
 
 ```python
-from tcg_tsasr import TextCueGuidedTSASR
+from inference import TextCueGuidedTSASR
 
 asr = TextCueGuidedTSASR.from_pretrained("YuCeong-May/WakeCue-ASR")  # or a local model.pt
 asr.to("cuda")  # optional
