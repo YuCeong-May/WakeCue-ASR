@@ -147,7 +147,7 @@ makes the file 1.6 GB; it is not an extra trained module.
 
 ## Training data
 
-![Training-data pipeline: speaker-labelled prompt speech and Qwen3-TTS synthesis, spk-mix composition, shortcut control, audit and online augmentation](assets/data-pipeline.png)
+![Training-data pipeline: (a) Qwen3-TTS synthesis from prompt speech, an ASR check with retry, and wake-word/command boundaries from Qwen3-ForcedAligner; (b) online simulation of target-speaker, interfering-speaker and noise mixtures with accept and reject labels](assets/data-pipeline.png)
 
 The model has to decide whether the command is spoken by the person who said
 the wake word, so the training samples pair wake words and commands from the
