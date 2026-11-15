@@ -10,14 +10,107 @@ model transcribes only the speaker who says it and ignores everyone else. If the
 cue is absent, or is said by another speaker, it returns `<reject/>` instead of
 transcribing the wrong person.
 
-- Paper: coming soon
 - Model: [huggingface.co/YuCeong-May/WakeCue-ASR](https://huggingface.co/YuCeong-May/WakeCue-ASR)
 - Demo: [WakeCue-ASR Space](https://huggingface.co/spaces/YuCeong-May/WakeCue-ASR)
-- Inference code: the [`tcg_tsasr` package](https://huggingface.co/spaces/YuCeong-May/WakeCue-ASR/tree/main/tcg_tsasr)
-  in the WakeCue-ASR Space repository.
-- Language: Mandarin Chinese, 16 kHz audio. Audio within 20 seconds is recommended.
-- Weights: `model.pt` (1.6 GB) in the model repository, SHA-256
-  `870aef70a8a8c2b292b3eb959ea4a0907edc751848729070aea04465b449fcf5`.
+
+## Inference
+
+### Installation
+
+Python 3.10 or later is required.
+
+```bash
+git clone https://github.com/YuCeong-May/WakeCue-ASR.git
+cd WakeCue-ASR
+pip install -r requirements.txt
+```
+
+`requirements.txt` installs PyTorch from PyPI. For a particular CUDA or CPU
+build, install `torch` and `torchaudio` first, following
+[pytorch.org](https://pytorch.org/get-started/locally/). The code has been
+tested on CPU with Python 3.11 (torch 2.7.1 and 2.15.0), and the demo Space runs
+the same `tcg_tsasr` package on CUDA with Python 3.10 (torch 2.13.0). A GPU is
+optional: on an Apple M3 CPU, loading the model takes 13-17 s and transcribing
+a 5 s clip 1.3-1.7 s.
+
+### Weights
+
+The first run downloads `model.pt` (1.6 GB) from the
+[model repository](https://huggingface.co/YuCeong-May/WakeCue-ASR) into the
+Hugging Face cache. The file holds every weight, including those of
+Qwen2.5-0.5B, so nothing else is downloaded. To use a local copy, pass the file
+or its directory with `--weights`. Its SHA-256 is
+`870aef70a8a8c2b292b3eb959ea4a0907edc751848729070aea04465b449fcf5`.
+
+### Input
+
+- Mandarin Chinese speech. Audio of any sample rate is resampled to 16 kHz,
+  and multi-channel audio is averaged to mono. Audio within 20 seconds is
+  recommended.
+- The text cue is the wake word, or other words the target speaker says. Cues of
+  2-5 characters are recommended.
+
+### Command line
+
+The demo's examples are midea-test clips, each a wake word followed by a
+command. Download them and transcribe one:
+
+```bash
+hf download YuCeong-May/WakeCue-ASR --repo-type space --include "examples/*" --local-dir .
+python infer.py --audio examples/midea_pos_2465.wav --cue 小美小美
+```
+
+The output is one JSON line per input:
+
+```json
+{"audio": "examples/midea_pos_2465.wav", "cue": "小美小美", "text": "小美小美播放一千零一夜故事", "rejected": false, "raw": "<psok>小美小美<peok>播放一千零一夜故事<|endoftext|>"}
+```
+
+- `text`: the target speaker's transcript without special tokens, including
+  the cue.
+- `rejected`: `true` when no target speaker is found; `text` then holds at most
+  the cue.
+- `raw`: the decoder output, in one of the formats listed under
+  [Architecture](#architecture).
+
+When the wake word and the command are separate recordings, as in midea-test,
+pass both files. They are joined in order with no gap:
+
+```bash
+python infer.py --audio kws_5184.wav cmd_5184.wav --cue 小美小美
+```
+
+To process many files, write a JSON-lines list with one object per line.
+`audio` is a path or a list of paths, relative to the list file; other fields
+are copied to the output.
+
+```
+{"id": "pos_2465", "audio": "examples/midea_pos_2465.wav", "cue": "小美小美"}
+{"id": "neg_5184", "audio": ["kws_5184.wav", "cmd_5184.wav"], "cue": "小美小美"}
+```
+
+```bash
+python infer.py --list test.jsonl --output result.jsonl
+```
+
+`--device` defaults to `cuda` when it is available and to `cpu` otherwise. See
+`python infer.py --help` for all options.
+
+### Python
+
+From the repository root:
+
+```python
+from tcg_tsasr import TextCueGuidedTSASR
+
+asr = TextCueGuidedTSASR.from_pretrained("YuCeong-May/WakeCue-ASR")  # or a local model.pt
+asr.to("cuda")  # optional: run on a GPU
+out = asr.transcribe("examples/midea_pos_2465.wav", "小美小美")
+print(out["text"], out["rejected"])
+```
+
+`transcribe` also accepts audio bytes or a `(waveform, sample_rate)` tuple. It
+raises `ValueError` for an empty cue or silent audio.
 
 ## Architecture
 
@@ -51,14 +144,6 @@ Qwen input embedding and output head are tied and, since LoRA is applied to
 `lm_head`, the shared matrix appears once as `embed_tokens.weight` and once as
 `lm_head.base_layer.weight` (element-wise identical). That duplicate is what
 makes the file 1.6 GB; it is not an extra trained module.
-
-```python
-from tcg_tsasr import TextCueGuidedTSASR  # from the Space repository
-
-asr = TextCueGuidedTSASR.from_pretrained("YuCeong-May/WakeCue-ASR")
-out = asr.transcribe("examples/midea_pos_2465.wav", "小美小美")
-print(out["text"], out["rejected"])
-```
 
 ## Training data
 
@@ -163,3 +248,12 @@ utterances when the cue is unclear rather than transcribing another speaker.
 
 - Model weights and code: Apache-2.0, see `LICENSE`.
 - The embedded Qwen2.5-0.5B weights are also under Apache-2.0.
+- Cue and acoustic encoders adapted from
+  [DAE-TSE / KCE](https://github.com/GnafiY/DAE-TSE); Conformer layers follow
+  [WeNet](https://github.com/wenet-e2e/wenet).
+- Cue vocabulary (`tcg_tsasr/assets/cue_vocab.json`, `cue_seg_dict.txt`): the
+  [Paraformer-zh](https://huggingface.co/funasr/paraformer-zh) token list and
+  segmentation dictionary (Apache-2.0), with `<psok>` and `<peok>` appended to
+  the token list.
+- [Qwen2.5-0.5B](https://huggingface.co/Qwen/Qwen2.5-0.5B) tokenizer and config:
+  Apache-2.0, see `tcg_tsasr/assets/qwen/LICENSE`.

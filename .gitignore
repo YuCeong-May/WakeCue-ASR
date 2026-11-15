@@ -4,3 +4,9 @@
 *.ptx
 *.cubin
 *.fatbin
+
+# Python
+__pycache__/
+
+# Example clips fetched from the demo Space (see README.md)
+examples/

@@ -1,0 +1,17 @@
+# Inference only. For a particular CUDA or CPU build of PyTorch, install torch
+# and torchaudio first: https://pytorch.org/get-started/locally/
+torch>=2.7
+torchaudio>=2.7
+scipy>=1.15.3
+
+# Pinned to the versions verified with model.pt (numpy 1.26 has no wheels for
+# Python 3.13 and later).
+numpy==1.26.4; python_version < "3.13"
+numpy>=2.1.0; python_version >= "3.13"
+soundfile==0.13.1
+transformers==5.12.1
+tokenizers==0.22.2
+peft==0.20.0
+accelerate==1.14.0
+safetensors==0.8.0
+huggingface-hub==1.19.0
