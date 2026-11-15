@@ -1,15 +1,18 @@
 # WakeCue-ASR
 
-![WakeCue-ASR: a speech-LLM framework for enrollment-free, wake-word-guided target-speaker ASR](assets/wakecue-asr.png)
+![WakeCue-ASR architecture](assets/model.png)
 
-**WakeCue-ASR** is a speech-LLM framework for **enrollment-free, wake-word
-guided target-speaker ASR** in complex noisy scenarios. Several people talk at
-once, and the target speaker's command starts with a wake word. Given that wake
-word as a **text cue** — no enrollment recording and no speaker embedding — the
-model transcribes only the speaker who says it and ignores everyone else. If the
-cue is absent, or is said by another speaker, it returns `<reject/>` instead of
-transcribing the wrong person.
+![Training-data pipeline: (a) Qwen3-TTS synthesis from prompt speech, an ASR check with retry, and wake-word/command boundaries from Qwen3-ForcedAligner; (b) online simulation of target-speaker, interfering-speaker and noise mixtures with accept and reject labels](assets/data-pipeline.png)
 
+**WakeCue-ASR** is a speech-LLM for enrollment-free, wake-word-guided
+target-speaker ASR in noisy multi-talker scenes. Given the wake word as a text
+cue, it transcribes the command of the speaker who said it, and returns
+`<reject/>` when the cue is absent or the command comes from someone else. The
+cue conditions a pretrained speech encoder through cross-attention, and a
+LoRA-adapted Qwen2.5-0.5B decodes the transcript. The training data are
+synthesized with Qwen3-TTS and mixed online with interfering speakers and noise.
+
+- Paper: coming soon
 - Model: [huggingface.co/YuCeong-May/WakeCue-ASR](https://huggingface.co/YuCeong-May/WakeCue-ASR)
 - Demo: [WakeCue-ASR Space](https://huggingface.co/spaces/YuCeong-May/WakeCue-ASR)
 
@@ -17,7 +20,7 @@ transcribing the wrong person.
 
 ### Installation
 
-Python 3.10 or later is required.
+Python 3.10 or later:
 
 ```bash
 git clone https://github.com/YuCeong-May/WakeCue-ASR.git
@@ -25,64 +28,43 @@ cd WakeCue-ASR
 pip install -r requirements.txt
 ```
 
-`requirements.txt` installs PyTorch from PyPI. For a particular CUDA or CPU
-build, install `torch` and `torchaudio` first, following
-[pytorch.org](https://pytorch.org/get-started/locally/). The code has been
-tested on CPU with Python 3.11 (torch 2.7.1 and 2.15.0), and the demo Space runs
-the same `tcg_tsasr` package on CUDA with Python 3.10 (torch 2.13.0). A GPU is
-optional: on an Apple M3 CPU, loading the model takes 13-17 s and transcribing
-a 5 s clip 1.3-1.7 s.
-
-### Weights
-
-The first run downloads `model.pt` (1.6 GB) from the
-[model repository](https://huggingface.co/YuCeong-May/WakeCue-ASR) into the
-Hugging Face cache. The file holds every weight, including those of
-Qwen2.5-0.5B, so nothing else is downloaded. To use a local copy, pass the file
-or its directory with `--weights`. Its SHA-256 is
-`870aef70a8a8c2b292b3eb959ea4a0907edc751848729070aea04465b449fcf5`.
-
-### Input
-
-- Mandarin Chinese speech. Audio of any sample rate is resampled to 16 kHz,
-  and multi-channel audio is averaged to mono. Audio within 20 seconds is
-  recommended.
-- The text cue is the wake word, or other words the target speaker says. Cues of
-  2-5 characters are recommended.
+For a specific CUDA build of PyTorch, install `torch` and `torchaudio` first
+([pytorch.org](https://pytorch.org/get-started/locally/)). A GPU is optional
+(about 1.5 s per 5 s clip on an Apple M3 CPU). The first run downloads
+`model.pt` (1.6 GB, all weights including Qwen2.5-0.5B) from the
+[model repository](https://huggingface.co/YuCeong-May/WakeCue-ASR); pass a
+local copy with `--weights`.
 
 ### Command line
 
-The demo's examples are midea-test clips, each a wake word followed by a
-command. Download them and transcribe one:
+The input is Mandarin speech (resampled to 16 kHz mono; up to 20 s recommended)
+and a text cue, usually the wake word (2-5 characters recommended). The demo's
+examples are midea-test clips, each a wake word followed by a command:
 
 ```bash
 hf download YuCeong-May/WakeCue-ASR --repo-type space --include "examples/*" --local-dir .
 python infer.py --audio examples/midea_pos_2465.wav --cue 小美小美
 ```
 
-The output is one JSON line per input:
+Each input gives one JSON line:
 
 ```json
 {"audio": "examples/midea_pos_2465.wav", "cue": "小美小美", "text": "小美小美播放一千零一夜故事", "rejected": false, "raw": "<psok>小美小美<peok>播放一千零一夜故事<|endoftext|>"}
 ```
 
-- `text`: the target speaker's transcript without special tokens, including
-  the cue.
-- `rejected`: `true` when no target speaker is found; `text` then holds at most
-  the cue.
-- `raw`: the decoder output, in one of the formats listed under
-  [Architecture](#architecture).
+`text` is the target speaker's transcript, including the cue. `rejected` is
+`true` when there is no target speaker. `raw` is the decoder output:
+`<psok>cue<peok>command`, `<psok>cue<peok><reject/>` when the command comes
+from another speaker, or `<reject/>` when the cue is absent.
 
-When the wake word and the command are separate recordings, as in midea-test,
-pass both files. They are joined in order with no gap:
+Separate wake-word and command recordings are joined in order, with no gap:
 
 ```bash
 python infer.py --audio kws_5184.wav cmd_5184.wav --cue 小美小美
 ```
 
-To process many files, write a JSON-lines list with one object per line.
-`audio` is a path or a list of paths, relative to the list file; other fields
-are copied to the output.
+For many inputs, pass a JSON-lines list. `audio` is a path or a list of paths,
+relative to the list file; other fields are copied to the output:
 
 ```
 {"id": "pos_2465", "audio": "examples/midea_pos_2465.wav", "cue": "小美小美"}
@@ -93,8 +75,8 @@ are copied to the output.
 python infer.py --list test.jsonl --output result.jsonl
 ```
 
-`--device` defaults to `cuda` when it is available and to `cpu` otherwise. See
-`python infer.py --help` for all options.
+`--device` defaults to `cuda` when it is available; `python infer.py --help`
+lists all options.
 
 ### Python
 
@@ -104,98 +86,25 @@ From the repository root:
 from tcg_tsasr import TextCueGuidedTSASR
 
 asr = TextCueGuidedTSASR.from_pretrained("YuCeong-May/WakeCue-ASR")  # or a local model.pt
-asr.to("cuda")  # optional: run on a GPU
+asr.to("cuda")  # optional
 out = asr.transcribe("examples/midea_pos_2465.wav", "小美小美")
 print(out["text"], out["rejected"])
 ```
 
-`transcribe` also accepts audio bytes or a `(waveform, sample_rate)` tuple. It
-raises `ValueError` for an empty cue or silent audio.
+`transcribe` also accepts audio bytes or a `(waveform, sample_rate)` tuple.
 
-## Architecture
+## Results
 
-![WakeCue-ASR architecture](assets/model.png)
+### midea-test
 
-| Component | Details | Parameters |
-|---|---|---:|
-| Front end | 80-dim kaldi fbank, 25 ms window, 10 ms shift, conv subsampling (4x) to 25 Hz | - |
-| CueEncoder | 8406-unit cue vocabulary (Chinese characters and subwords) + 4 Transformer layers, dim 256 | 7.5 M |
-| AcousticEncoder | 9 Conformer layers (dim 256, 4 heads, FFN 2048, conv kernel 15); every layer cross-attends to the cue | 27.5 M |
-| Projector | Gated 4-frame Conv1d, stride 2 (12.5 audio tokens/s), bottleneck, projected to 896 | 3.6 M |
-| LLM | Qwen2.5-0.5B (24 layers, hidden 896) with LoRA r = 64, alpha = 128 on q/k/v/o, gate/up/down and lm_head | 494 M base + 45 M LoRA |
-| CTC head | On the Conformer stack, stage 1 only | 2.2 M |
-| Speaker head | Speaker classification, stage 4 only | 1.8 M |
-
-The CTC head and the speaker head are training-time auxiliaries and are not used
-at inference. The LLM is prompted with the cue and decodes greedily:
-
-- `<psok>cue<peok>command` when the target speaker is found. The cue is
-  bracketed where it occurs; the demo strips the brackets.
-- `<psok>cue<peok><reject/>` when the cue is heard but not from the target speaker.
-- `<reject/>` when the cue is not in the audio.
-
-`model.pt` (1.6 GB) holds every weight the model needs, including the Qwen2.5-0.5B
-base weights, so nothing else is downloaded. The checkpoint also contains the
-training-only speaker-classification head (1.8 M), which inference ignores.
-
-The model has 579 M parameters, 85 M of them trainable (the LoRA adapters and
-the projector). `model.pt` stores 715 M weight values, 136 M more, because the
-Qwen input embedding and output head are tied and, since LoRA is applied to
-`lm_head`, the shared matrix appears once as `embed_tokens.weight` and once as
-`lm_head.base_layer.weight` (element-wise identical). That duplicate is what
-makes the file 1.6 GB; it is not an extra trained module.
-
-## Training data
-
-![Training-data pipeline: (a) Qwen3-TTS synthesis from prompt speech, an ASR check with retry, and wake-word/command boundaries from Qwen3-ForcedAligner; (b) online simulation of target-speaker, interfering-speaker and noise mixtures with accept and reject labels](assets/data-pipeline.png)
-
-The model has to decide whether the command is spoken by the person who said
-the wake word, so the training samples pair wake words and commands from the
-same speaker and from different speakers. They are simulated as follows:
-
-- **Source speech.** Speaker-labelled utterances from AISHELL-1, AISHELL-2,
-  AISHELL-4, WenetSpeech and WenetSpeech4TTS provide the voice prompts for
-  Qwen3-TTS. Every synthesized utterance keeps the speaker ID of its prompt.
-- **Synthesis.** Qwen3-TTS generates two kinds of speech. Command-only
-  utterances are later joined to an utterance of the same or of another
-  speaker. Wake-plus-command utterances are synthesized as one sequence, so
-  the wake word and the command share one acoustic context.
-- **spk-mix.** A manifest stores the wake segment, the command segment, their
-  boundary and the speaker IDs. Same-speaker pairs become positives
-  (`<psok>cue<peok>command`), different-speaker pairs become negatives
-  (`<psok>cue<peok><reject/>`), and samples without the cue become
-  cue-absent rejections (`<reject/>`).
-- **Shortcut control and audit.** The samples are composed so that duration,
-  pauses, splicing or the source corpus do not reveal the label. An audit
-  confirms that duration and pause features predict the label only at chance
-  (AUC ≈ 0.50) and that labels and speaker maps are consistent.
-- **Online augmentation.** Interfering talkers and background noise (fans,
-  scene noise) are added on the fly during training. The speaker relation is
-  fixed by the manifest, while the acoustic conditions change from epoch to
-  epoch.
-
-## Results on midea-test
-
-midea-test is a smart-home wake-plus-command test set from the
-[Midea AI challenge](https://ai.midea.com/#/match-detail): 1838 utterances
-recorded with overlapping speech and household interference (air conditioners
-and other appliances, music, singing, background speech), at SNRs from -5 to
-5 dB, with 0-100 % speaker overlap and at most two speakers talking at once.
-
-All values are in %:
-
-- **pos-CER**: command CER on positive samples; a rejected positive counts as
-  deleting every reference character.
-- **FR**: false-rejection rate, the fraction of positives with empty output.
-- **RR**: rejection rate, the fraction of negatives with empty output.
-- **U** = (100 - pos-CER + RR) / 2, the unified score, which weighs recognizing
-  positives and rejecting negatives equally. It is computed from unrounded rates.
-
-The baselines are enrollment-free systems built from public pretrained models;
-none of them is trained on this task, and their Qwen3-ASR components are
-Qwen3-ASR-1.7B. The B2 similarity threshold τ was selected on this same test
-set, which favours B2. S1-S4 are the four training stages of WakeCue-ASR; the
-released `model.pt` is the Stage 4 model.
+midea-test, from the [Midea AI challenge](https://ai.midea.com/#/match-detail),
+has 1838 smart-home wake-plus-command recordings with overlapping speech and
+household noise (SNR -5 to 5 dB, at most two talkers at once). Values are in %:
+pos-CER is the command CER on positive samples (a rejected positive counts as
+deleting every character), FR and RR are the rejection rates on positive and
+negative samples, and U = (100 - pos-CER + RR) / 2. B1-B6 are enrollment-free
+baselines built from public pretrained models; the B2 threshold τ was tuned on
+this test set. S1-S4 are the four training stages; the released model is S4.
 
 | ID | System | pos-CER ↓ | FR ↓ | RR ↑ | U ↑ | Notes |
 |---|---|---:|---:|---:|---:|---|
@@ -210,20 +119,13 @@ released `model.pt` is the Stage 4 model.
 | S3 | WakeCue-ASR, Stage 3 | 20.47 | 13.86 | 90.72 | 85.12 | Joint training |
 | S4 | WakeCue-ASR, Stage 4 | **16.15** | **9.46** | 91.56 | **87.70** | Speaker supervision |
 
-pos-CER, RR and U of the baselines and of Stages 1 and 4, with B2 at its best
-threshold:
-
 ![pos-CER, RR and unified score U on midea-test for the six baselines and for WakeCue-ASR after Stage 1 and Stage 4](assets/results-midea-test.png)
 
-## Results on TS-Aishell
+### TS-Aishell
 
-TS-Aishell mixes two speakers from AISHELL-1 and the AISHELL-2 test sets (iOS,
-Android, Mic, and a cross-device mix). Each of the five test sets has 6000
-mixtures. The text cue is the first 2-5 characters of the target speaker's
-sentence, standing in for a wake word. Decoding is greedy.
-
-CER / SER / reject rate in %. A rejected utterance is scored on whatever text the
-model produced.
+Two-speaker mixtures from AISHELL-1 and the AISHELL-2 test sets, 6000 per test
+set. The cue is the first 2-5 characters of the target speaker's sentence.
+CER / SER / reject rate in %:
 
 | Test set | 2 chars | 3 chars | 4 chars | 5 chars |
 |---|---|---|---|---|
@@ -233,27 +135,15 @@ model produced.
 | aishell-mic-ts | 12.21 / 46.02 / 3.85 | 9.33 / 39.63 / 3.23 | 7.62 / 34.93 / 4.10 | **6.42** / 30.23 / 6.68 |
 | aishell-mix-ts | 8.35 / 37.55 / 2.78 | 5.91 / 32.37 / 2.63 | 4.76 / 28.55 / 3.32 | **3.94** / 23.70 / 5.40 |
 
-Longer cues help: going from 2 to 5 characters cuts CER by 42-57 % relative.
-The model is deliberately conservative: it rejects 5-8 % of AISHELL-2
-utterances when the cue is unclear rather than transcribing another speaker.
-
-## Limitations
-
-- Mandarin only; the cue must be words the target speaker actually says.
-- Evaluated with at most two simultaneous speakers. More speakers and long
-  audio (over 20 s) are not evaluated.
-- Cues of 2-5 characters are recommended; longer cues are accepted but untested.
-
 ## License
 
-- Model weights and code: Apache-2.0, see `LICENSE`.
-- The embedded Qwen2.5-0.5B weights are also under Apache-2.0.
-- Cue and acoustic encoders adapted from
-  [DAE-TSE / KCE](https://github.com/GnafiY/DAE-TSE); Conformer layers follow
-  [WeNet](https://github.com/wenet-e2e/wenet).
-- Cue vocabulary (`tcg_tsasr/assets/cue_vocab.json`, `cue_seg_dict.txt`): the
-  [Paraformer-zh](https://huggingface.co/funasr/paraformer-zh) token list and
-  segmentation dictionary (Apache-2.0), with `<psok>` and `<peok>` appended to
-  the token list.
-- [Qwen2.5-0.5B](https://huggingface.co/Qwen/Qwen2.5-0.5B) tokenizer and config:
-  Apache-2.0, see `tcg_tsasr/assets/qwen/LICENSE`.
+Apache-2.0, see `LICENSE`; the embedded Qwen2.5-0.5B weights are also under
+Apache-2.0. The cue and acoustic encoders are adapted from
+[DAE-TSE / KCE](https://github.com/GnafiY/DAE-TSE), and the Conformer layers
+follow [WeNet](https://github.com/wenet-e2e/wenet). The cue vocabulary
+(`tcg_tsasr/assets/cue_vocab.json`, `cue_seg_dict.txt`) is the
+[Paraformer-zh](https://huggingface.co/funasr/paraformer-zh) token list and
+segmentation dictionary (Apache-2.0) with `<psok>` and `<peok>` appended. The
+tokenizer and config are those of
+[Qwen2.5-0.5B](https://huggingface.co/Qwen/Qwen2.5-0.5B) (Apache-2.0, see
+`tcg_tsasr/assets/qwen/LICENSE`).
