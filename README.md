@@ -137,13 +137,4 @@ CER / SER / reject rate in %:
 
 ## License
 
-Apache-2.0, see `LICENSE`; the embedded Qwen2.5-0.5B weights are also under
-Apache-2.0. The cue and acoustic encoders are adapted from
-[DAE-TSE / KCE](https://github.com/GnafiY/DAE-TSE), and the Conformer layers
-follow [WeNet](https://github.com/wenet-e2e/wenet). The cue vocabulary
-(`tcg_tsasr/assets/cue_vocab.json`, `cue_seg_dict.txt`) is the
-[Paraformer-zh](https://huggingface.co/funasr/paraformer-zh) token list and
-segmentation dictionary (Apache-2.0) with `<psok>` and `<peok>` appended. The
-tokenizer and config are those of
-[Qwen2.5-0.5B](https://huggingface.co/Qwen/Qwen2.5-0.5B) (Apache-2.0, see
-`tcg_tsasr/assets/qwen/LICENSE`).
+[Apache-2.0](LICENSE)
