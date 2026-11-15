@@ -56,7 +56,7 @@ makes the file 1.6 GB; it is not an extra trained module.
 from tcg_tsasr import TextCueGuidedTSASR  # from the Space repository
 
 asr = TextCueGuidedTSASR.from_pretrained("YuCeong-May/WakeCue-ASR")
-out = asr.transcribe("examples/0.wav", "附近居民")
+out = asr.transcribe("examples/midea_pos_2465.wav", "小美小美")
 print(out["text"], out["rejected"])
 ```
 
