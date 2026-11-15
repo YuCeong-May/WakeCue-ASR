@@ -25,7 +25,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from inference import TextCueGuidedTSASR
+from inference import WakeCueASR
 from inference.inference import SAMPLE_RATE, load_audio
 
 RESULT_KEYS = ("text", "rejected", "raw")
@@ -94,7 +94,7 @@ def main():
         if missing:
             sys.exit(f"{where}: audio file not found: {', '.join(missing)}")
 
-    asr = TextCueGuidedTSASR.from_pretrained(args.weights).to(args.device)
+    asr = WakeCueASR.from_pretrained(args.weights).to(args.device)
     out = open(args.output, "w", encoding="utf-8") if args.output else sys.stdout
     try:
         for record, paths, where in items:

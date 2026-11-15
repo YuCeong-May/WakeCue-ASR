@@ -1,5 +1,5 @@
 """Model definition: frontend, encoders and the LLM decoder."""
 
-from .modeling import TextCueGuidedTSASRModel
+from .modeling import WakeCueASRModel
 
-__all__ = ["TextCueGuidedTSASRModel"]
+__all__ = ["WakeCueASRModel"]

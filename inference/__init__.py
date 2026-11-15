@@ -1,5 +1,5 @@
-"""Text-Cue-Guided TS-ASR: minimal inference code."""
+"""WakeCue-ASR: minimal inference code."""
 
-from .inference import TextCueGuidedTSASR
+from .inference import WakeCueASR
 
-__all__ = ["TextCueGuidedTSASR"]
+__all__ = ["WakeCueASR"]

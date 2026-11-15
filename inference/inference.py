@@ -1,8 +1,8 @@
 """High-level inference: audio + text cue -> transcript of the cue speaker.
 
-    from inference import TextCueGuidedTSASR
+    from inference import WakeCueASR
 
-    asr = TextCueGuidedTSASR.from_pretrained("YuCeong-May/WakeCue-ASR")
+    asr = WakeCueASR.from_pretrained("YuCeong-May/WakeCue-ASR")
     asr.transcribe("speech.wav", "附近居民")
 """
 
@@ -16,7 +16,7 @@ import soundfile as sf
 from scipy.signal import resample_poly
 
 from .core.frontend import CueTokenizer, Fbank, normalize_cue
-from .core.modeling import TextCueGuidedTSASRModel
+from .core.modeling import WakeCueASRModel
 
 ASSETS = Path(__file__).resolve().parent / "assets"
 SAMPLE_RATE = 16000
@@ -43,7 +43,7 @@ def load_audio(source):
     return wav
 
 
-class TextCueGuidedTSASR:
+class WakeCueASR:
     """Audio decoding, features, cue tokenisation and greedy decoding around the model."""
 
     def __init__(self, model):
@@ -63,7 +63,7 @@ class TextCueGuidedTSASR:
             from huggingface_hub import hf_hub_download
 
             path = hf_hub_download(str(path_or_repo), "model.pt", **hub_kwargs)
-        model = TextCueGuidedTSASRModel(ASSETS / "qwen")
+        model = WakeCueASRModel(ASSETS / "qwen")
         num_tensors = model.load_checkpoint(path)
         model.eval()
         asr = cls(model)

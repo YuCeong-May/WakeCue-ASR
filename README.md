@@ -83,9 +83,9 @@ lists all options.
 From the repository root:
 
 ```python
-from inference import TextCueGuidedTSASR
+from inference import WakeCueASR
 
-asr = TextCueGuidedTSASR.from_pretrained("YuCeong-May/WakeCue-ASR")  # or a local model.pt
+asr = WakeCueASR.from_pretrained("YuCeong-May/WakeCue-ASR")  # or a local model.pt
 asr.to("cuda")  # optional
 out = asr.transcribe("examples/midea_pos_2465.wav", "小美小美")
 print(out["text"], out["rejected"])

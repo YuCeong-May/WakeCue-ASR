@@ -1,4 +1,4 @@
-"""Text-Cue-Guided TS-ASR model (inference only).
+"""WakeCue-ASR model (inference only).
 
 Given a mixture recording and a short text cue spoken by the target speaker, the
 model transcribes only that speaker::
@@ -108,8 +108,8 @@ class AudioProjector(nn.Module):
         return hidden, out_lengths.clamp_max(hidden.size(1))
 
 
-class TextCueGuidedTSASRModel(nn.Module):
-    """Text-Cue-Guided target-speaker ASR."""
+class WakeCueASRModel(nn.Module):
+    """Target-speaker ASR guided by a text cue (usually the wake word)."""
 
     def __init__(self, qwen_dir, cue_vocab_size=8406, projector_stride=2, lora_rank=64):
         super().__init__()
