@@ -12,7 +12,7 @@ cue conditions a pretrained speech encoder through cross-attention, and a
 LoRA-adapted Qwen2.5-0.5B decodes the transcript. The training data are
 synthesized with Qwen3-TTS and mixed online with interfering speakers and noise.
 
-- Paper: coming soon
+- Paper: [A Speech-LLM Framework for Enrollment-Free Wake-Word-Guided Target-Speaker Recognition in Complex Noisy Scenarios for Seamless Human-Machine Interaction](https://arxiv.org/abs/2611.19844) (arXiv:2611.19844)
 - Model: [huggingface.co/YuCeong-May/WakeCue-ASR](https://huggingface.co/YuCeong-May/WakeCue-ASR)
 - Demo: [WakeCue-ASR Space](https://huggingface.co/spaces/YuCeong-May/WakeCue-ASR)
 
